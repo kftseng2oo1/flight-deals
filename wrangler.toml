@@ -1,0 +1,20 @@
+name = "flight-deals"
+main = "flight-deals-worker.js"
+compatibility_date = "2026-09-01"
+
+[[kv_namespaces]]
+binding = "DEALS"
+id = "PUT_YOUR_KV_ID_HERE"
+
+[triggers]
+crons = ["0 */6 * * *"]   # 每 6 小時檢查一次門檻 + 促銷
+
+[vars]
+ALLOWED_ORIGIN = "https://kftseng2oo1.github.io"
+
+# secrets（用 wrangler secret put 設定）：
+#   TP_TOKEN            Travelpayouts Data API token（免費）
+#   DUFFEL_TOKEN        Duffel test 或 live token
+#   ANTHROPIC_API_KEY   促銷頁萃取
+#   LINE_CHANNEL_TOKEN  LINE Messaging API channel access token
+#   LINE_USER_ID        要收通知的 userId

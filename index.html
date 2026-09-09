@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#1B6F8A">
+<title>飛日韓 · 特價機票</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+  :root{
+    --bg:#F2F6F9; --paper:#FFFFFF; --ink:#12263F; --muted:#5B6B7F; --line:#D5DEE7;
+    --route:#1B6F8A; --price:#E8590C; --hit:#1E8E5A; --warn:#B45309;
+    --sat:env(safe-area-inset-top,0px); --sab:env(safe-area-inset-bottom,0px);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--ink);color-scheme:light;min-height:100%;
+    font-family:"Noto Sans TC","PingFang TC","Hiragino Sans","Apple SD Gothic Neo",-apple-system,sans-serif;
+    font-size:16px;line-height:1.5;-webkit-text-size-adjust:100%}
+  body{padding-top:var(--sat);padding-bottom:calc(64px + var(--sab))}
+  button,input,select{font:inherit;color:inherit}
+  button{border:0;background:none;padding:0;cursor:pointer}
+  a{color:var(--route)}
+
+  /* ── 路線板：頁面唯一的大聲元素 ── */
+  .board{background:var(--paper);border-bottom:1px solid var(--line);padding:14px 16px 12px}
+  .board-row{display:flex;align-items:center;justify-content:space-between}
+  .port{flex:1;text-align:left}
+  .port.right{text-align:right}
+  .port .code{display:block;font-size:44px;font-weight:800;letter-spacing:-.02em;line-height:1;
+    font-variant-numeric:tabular-nums;color:var(--ink)}
+  .port .name{display:block;margin-top:4px;font-size:13px;color:var(--muted)}
+  .port select{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}
+  .swap{width:44px;height:44px;border-radius:50%;border:1.5px solid var(--line);background:var(--bg);
+    display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--route);margin:0 10px}
+  .swap:active{background:var(--line)}
+  .board-sub{display:flex;gap:8px;margin-top:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .board-sub::-webkit-scrollbar{display:none}
+  .chip{white-space:nowrap;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--paper);font-size:13px;color:var(--muted)}
+  .chip.on{background:var(--route);border-color:var(--route);color:#fff}
+  .picker{display:none;position:fixed;inset:0;background:rgba(18,38,63,.45);z-index:20}
+  .picker.open{display:block}
+  .picker-sheet{position:absolute;left:0;right:0;bottom:0;background:var(--paper);border-radius:18px 18px 0 0;
+    max-height:72vh;overflow:auto;padding:12px 16px calc(16px + var(--sab))}
+  .picker h3{margin:6px 0 10px;font-size:14px;font-weight:600;color:var(--muted)}
+  .picker-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+  .picker-grid button{border:1px solid var(--line);border-radius:10px;padding:10px 6px;text-align:center;background:var(--bg)}
+  .picker-grid button b{display:block;font-size:17px;font-weight:700}
+  .picker-grid button span{font-size:12px;color:var(--muted)}
+  .picker-grid button.on{border-color:var(--route);background:#E6F1F5;color:var(--route)}
+
+  main{padding:12px 16px 0;max-width:720px;margin:0 auto;min-height:calc(100vh - 160px)}
+  .view{display:none}
+  .view.on{display:block}
+  .toolbar{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+  .toolbar select,.toolbar input{border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--paper);min-width:0}
+  .toolbar input[type=date]{flex:1}
+  .btn{border-radius:10px;padding:9px 14px;background:var(--route);color:#fff;font-weight:600}
+  .btn.ghost{background:var(--paper);color:var(--route);border:1px solid var(--line)}
+  .btn.danger{background:var(--paper);color:#B42318;border:1px solid var(--line)}
+  .btn:disabled{opacity:.5}
+
+  .note{font-size:13px;color:var(--muted);margin:0 0 10px}
+  .empty{border:1.5px dashed var(--line);border-radius:14px;padding:22px 16px;text-align:center;color:var(--muted);font-size:14px}
+  .empty b{display:block;color:var(--ink);font-weight:600;margin-bottom:4px}
+
+  /* ── 票根 ── */
+  .stub{display:flex;background:var(--paper);border:1px solid var(--line);border-radius:14px;margin-bottom:10px;overflow:hidden}
+  .stub .al{flex:0 0 64px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    border-right:1.5px dashed var(--line);padding:10px 4px;position:relative}
+  .stub .al:before,.stub .al:after{content:"";position:absolute;right:-7px;width:12px;height:12px;border-radius:50%;background:var(--bg);border:1px solid var(--line)}
+  .stub .al:before{top:-7px} .stub .al:after{bottom:-7px}
+  .stub .al b{font-size:18px;font-weight:800;letter-spacing:.02em}
+  .stub .al span{font-size:11px;color:var(--muted);text-align:center;line-height:1.2;margin-top:2px}
+  .stub .body{flex:1;padding:10px 12px;min-width:0}
+  .stub .top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+  .stub .title{font-weight:600;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .stub .price{font-size:22px;font-weight:800;color:var(--price);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .stub .price small{font-size:12px;font-weight:600;color:var(--muted);margin-right:2px}
+  .stub .meta{font-size:13px;color:var(--muted);margin-top:2px;display:flex;flex-wrap:wrap;gap:4px 12px}
+  .stub .meta .hit{color:var(--hit);font-weight:600}
+  .stub .act{margin-top:6px;display:flex;gap:8px;flex-wrap:wrap}
+  .stub .act a,.stub .act button{font-size:13px;padding:5px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--route);text-decoration:none}
+
+  /* ── 月曆 ── */
+  .cal-head{display:grid;grid-template-columns:repeat(7,1fr);font-size:12px;color:var(--muted);text-align:center;margin-bottom:4px}
+  .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+  .cal .d{aspect-ratio:1/1.15;background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:4px 2px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12px}
+  .cal .d.blank{background:transparent;border:0}
+  .cal .d .n{color:var(--muted)}
+  .cal .d .p{font-weight:700;font-variant-numeric:tabular-nums;font-size:12px;color:var(--ink)}
+  .cal .d.low .p{color:var(--price)}
+  .cal .d.lowest{border-color:var(--price);background:#FFF3EC}
+  .cal .d.sel{outline:2px solid var(--route)}
+  .cal .d.none .p{color:var(--line)}
+  .month-nav{display:flex;align-items:center;justify-content:space-between;margin:2px 0 10px}
+  .month-nav b{font-size:17px;font-weight:700}
+  .month-nav button{width:40px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--paper);font-size:18px}
+
+  /* ── 通知 ── */
+  .form{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:14px}
+  .form label{display:block;font-size:13px;color:var(--muted);margin:8px 0 4px}
+  .form input,.form select{width:100%;border:1px solid var(--line);border-radius:10px;padding:9px 10px;background:var(--bg)}
+  .form .row{display:flex;gap:10px}
+  .form .row>*{flex:1}
+  .months{display:flex;flex-wrap:wrap;gap:6px}
+  .months button{padding:5px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);font-size:13px}
+  .months button.on{background:#E6F1F5;border-color:var(--route);color:var(--route)}
+  .alert-item{display:flex;align-items:center;gap:10px;background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:8px}
+  .alert-item .r{flex:1;min-width:0}
+  .alert-item .r b{font-size:16px}
+  .alert-item .r span{display:block;font-size:13px;color:var(--muted)}
+  .alert-item .st{font-variant-numeric:tabular-nums;text-align:right;font-size:13px}
+  .alert-item .st b{display:block;font-size:16px}
+  .alert-item .st.hit b{color:var(--hit)}
+  .toggle{width:44px;height:26px;border-radius:13px;background:var(--line);position:relative;flex:0 0 44px}
+  .toggle:after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left .15s}
+  .toggle.on{background:var(--hit)} .toggle.on:after{left:21px}
+
+  /* ── Tabs ── */
+  nav{position:fixed;left:0;right:0;bottom:0;background:var(--paper);border-top:1px solid var(--line);
+    display:flex;padding-bottom:var(--sab);z-index:10}
+  nav button{flex:1;padding:8px 0 6px;font-size:11px;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:2px}
+  nav button i{font-style:normal;font-size:20px;line-height:1}
+  nav button.on{color:var(--route);font-weight:600}
+
+  .toast{position:fixed;left:50%;bottom:calc(76px + var(--sab));transform:translateX(-50%);background:var(--ink);color:#fff;
+    padding:9px 14px;border-radius:10px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:30;max-width:90vw}
+  .toast.show{opacity:1}
+  .spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--route);border-radius:50%;
+    animation:sp .7s linear infinite;vertical-align:-2px;margin-right:6px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion:reduce){.spin{animation:none}.toggle:after{transition:none}}
+  :focus-visible{outline:2px solid var(--route);outline-offset:2px}
+</style>
+</head>
+<body>
+
+<header class="board">
+  <div class="board-row">
+    <button class="port" id="fromBtn" aria-label="出發地">
+      <span class="code" id="fromCode">TPE</span>
+      <span class="name" id="fromName">台北桃園</span>
+    </button>
+    <button class="swap" id="swapBtn" aria-label="交換出發地與目的地">⇄</button>
+    <button class="port right" id="toBtn" aria-label="目的地">
+      <span class="code" id="toCode">TYO</span>
+      <span class="name" id="toName">東京（成田/羽田）</span>
+    </button>
+  </div>
+  <div class="board-sub" id="quickRoutes"></div>
+</header>
+
+<div class="picker" id="picker">
+  <div class="picker-sheet" id="pickerSheet"></div>
+</div>
+
+<main>
+  <!-- 促銷 -->
+  <section class="view on" id="v-promo">
+    <div class="toolbar">
+      <select id="promoRegion"><option value="">全部航空</option><option value="TW">台灣籍</option><option value="JP">日本籍</option><option value="KR">韓國籍</option></select>
+      <select id="promoDest"><option value="">台日 + 台韓</option><option value="JP">只看台日</option><option value="KR">只看台韓</option></select>
+      <button class="btn ghost" id="promoRefresh">重新抓取</button>
+    </div>
+    <p class="note" id="promoNote">各航空促銷頁由後端抓取、AI 整理，每 12 小時更新一次。</p>
+    <div id="promoList"></div>
+  </section>
+
+  <!-- 月曆 -->
+  <section class="view" id="v-cal">
+    <div class="toolbar">
+      <select id="calTrip"><option value="1">來回</option><option value="0">單程</option></select>
+      <span class="note" style="margin:0">每日最低價（來源：Aviasales 快取）</span>
+    </div>
+    <div class="month-nav">
+      <button id="calPrev" aria-label="上個月">‹</button>
+      <b id="calTitle"></b>
+      <button id="calNext" aria-label="下個月">›</button>
+    </div>
+    <div class="cal-head"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>
+    <div class="cal" id="calGrid"></div>
+    <p class="note" style="margin-top:10px" id="calNote"></p>
+    <div id="calList"></div>
+  </section>
+
+  <!-- 即時 -->
+  <section class="view" id="v-live">
+    <div class="toolbar">
+      <input type="date" id="liveDep" aria-label="去程日期">
+      <input type="date" id="liveRet" aria-label="回程日期">
+      <button class="btn" id="liveGo">查即時票價</button>
+    </div>
+    <p class="note">向 Duffel 即時詢價，含稅總價。回程留空即單程。</p>
+    <div id="liveList"></div>
+  </section>
+
+  <!-- 通知 -->
+  <section class="view" id="v-alert">
+    <div class="form">
+      <div class="row">
+        <div><label>出發</label><input id="alFrom" value="TPE" maxlength="3" style="text-transform:uppercase"></div>
+        <div><label>目的</label><input id="alTo" value="TYO" maxlength="3" style="text-transform:uppercase"></div>
+        <div><label>行程</label><select id="alTrip"><option value="1">來回</option><option value="0">單程</option></select></div>
+      </div>
+      <label>低於這個價格就通知（NT$）</label>
+      <input id="alPrice" type="number" inputmode="numeric" placeholder="例如 6000">
+      <label>出發月份（不選 = 未來三個月）</label>
+      <div class="months" id="alMonths"></div>
+      <div style="margin-top:12px;display:flex;gap:8px">
+        <button class="btn" id="alSave">加入通知</button>
+        <button class="btn ghost" id="alRun">立即檢查</button>
+      </div>
+    </div>
+    <div id="alertList"></div>
+  </section>
+
+  <!-- 設定 -->
+  <section class="view" id="v-set">
+    <div class="form">
+      <label>後端 Worker 網址</label>
+      <input id="setBase" placeholder="https://arcar.kftseng2oo1.workers.dev/flights">
+      <p class="note" style="margin-top:8px">獨立部署時填 Worker 網址；掛在 arcar 時填到路徑前綴（例如 …/flights）。</p>
+      <div style="display:flex;gap:8px">
+        <button class="btn" id="setSave">儲存</button>
+        <button class="btn ghost" id="setPing">測試連線</button>
+        <button class="btn ghost" id="setLine">測試 LINE</button>
+      </div>
+      <pre id="setStatus" style="font-size:12px;white-space:pre-wrap;color:var(--muted);margin:10px 0 0"></pre>
+    </div>
+  </section>
+</main>
+
+<nav>
+  <button data-v="promo" class="on"><i>🏷️</i>促銷</button>
+  <button data-v="cal"><i>📅</i>月曆</button>
+  <button data-v="live"><i>⚡</i>即時</button>
+  <button data-v="alert"><i>🔔</i>通知</button>
+  <button data-v="set"><i>⚙️</i>設定</button>
+</nav>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  'use strict';
+
+  // ───── 機場資料 ─────
+  var PORTS = {
+    TW: [['TPE','台北桃園'],['TSA','台北松山'],['KHH','高雄'],['RMQ','台中']],
+    JP: [['TYO','東京（成田/羽田）'],['NRT','東京成田'],['HND','東京羽田'],['OSA','大阪（關西）'],['KIX','大阪關西'],['NGO','名古屋'],
+         ['FUK','福岡'],['CTS','札幌新千歲'],['OKA','沖繩那霸'],['SDJ','仙台'],['KOJ','鹿兒島'],['KMJ','熊本'],
+         ['HIJ','廣島'],['OKJ','岡山'],['TAK','高松'],['KIJ','新潟'],['HKD','函館'],['AOJ','青森'],['ISG','石垣']],
+    KR: [['SEL','首爾（仁川/金浦）'],['ICN','首爾仁川'],['GMP','首爾金浦'],['PUS','釜山'],['CJU','濟州'],['TAE','大邱'],['CJJ','清州'],['KWJ','光州']]
+  };
+  var AIRLINES = {
+    BR:'長榮', CI:'華航', JX:'星宇', IT:'台灣虎航', AE:'華信',
+    JL:'JAL', NH:'ANA', MM:'Peach', GK:'Jetstar日本', NQ:'AirJapan', TR:'酷航', '3K':'Jetstar亞洲',
+    KE:'大韓', OZ:'韓亞', LJ:'Jin Air', TW:"T'way", '7C':'濟州', BX:'釜山航空', ZE:'易斯達', RS:'首爾航空', RF:'Aero K',
+    CX:'國泰', HX:'香港航空', UO:'香港快運'
+  };
+  var QUICK = [['TPE','TYO'],['TPE','OSA'],['TPE','FUK'],['TPE','OKA'],['TPE','CTS'],['TPE','SEL'],['TPE','PUS'],['KHH','TYO'],['KHH','SEL']];
+
+  function portName(code){
+    var k, i;
+    for (k in PORTS) for (i=0;i<PORTS[k].length;i++) if (PORTS[k][i][0]===code) return PORTS[k][i][1];
+    return code;
+  }
+  function alName(code){ return AIRLINES[code] || code; }
+  function regionOf(code){
+    var k, i;
+    for (k in PORTS) for (i=0;i<PORTS[k].length;i++) if (PORTS[k][i][0]===code) return k;
+    return '';
+  }
+
+  // ───── 狀態 ─────
+  var S = {
+    from: localStorage.getItem('fd_from') || 'TPE',
+    to: localStorage.getItem('fd_to') || 'TYO',
+    base: localStorage.getItem('fd_base') || 'https://arcar.kftseng2oo1.workers.dev/flights',
+    calMonth: null, calData: null, calSel: null,
+    promos: null, alerts: []
+  };
+
+  var $ = function(id){ return document.getElementById(id); };
+  var toastT;
+  function toast(msg){ var t=$('toast'); t.textContent=msg; t.className='toast show'; clearTimeout(toastT); toastT=setTimeout(function(){t.className='toast';},2200); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  function nt(n){ return n==null?'—':Number(n).toLocaleString('zh-TW'); }
+  function api(path, opts){
+    var base = S.base.replace(/\/+$/,'');
+    return fetch(base + path, opts).then(function(r){ return r.json(); }).then(function(j){
+      if (j && j.ok===false) throw new Error(j.error||'error'); return j;
+    });
+  }
+  function ymOf(d){ return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2); }
+  function addMonths(ym, n){ var p=ym.split('-'); var d=new Date(p[0], (+p[1])-1+n, 1); return ymOf(d); }
+  function monthLabel(ym){ var p=ym.split('-'); return p[0]+' 年 '+(+p[1])+' 月'; }
+
+  // ───── 路線板 ─────
+  function renderBoard(){
+    $('fromCode').textContent=S.from; $('fromName').textContent=portName(S.from);
+    $('toCode').textContent=S.to; $('toName').textContent=portName(S.to);
+    $('alFrom').value=S.from; $('alTo').value=S.to;
+    var html='', i;
+    for (i=0;i<QUICK.length;i++){
+      var on = (QUICK[i][0]===S.from && QUICK[i][1]===S.to) ? ' on':'';
+      html += '<button class="chip'+on+'" data-f="'+QUICK[i][0]+'" data-t="'+QUICK[i][1]+'">'+QUICK[i][0]+' ⇄ '+QUICK[i][1]+'</button>';
+    }
+    $('quickRoutes').innerHTML=html;
+    localStorage.setItem('fd_from',S.from); localStorage.setItem('fd_to',S.to);
+  }
+  function setRoute(f,t){ S.from=f; S.to=t; S.calData=null; renderBoard(); refreshActive(); }
+  $('quickRoutes').addEventListener('click',function(e){
+    var b=e.target.closest('button'); if(!b) return; setRoute(b.getAttribute('data-f'), b.getAttribute('data-t'));
+  });
+  $('swapBtn').addEventListener('click',function(){ setRoute(S.to,S.from); });
+
+  var pickSide='from';
+  function openPicker(side){
+    pickSide=side;
+    var cur = side==='from'?S.from:S.to;
+    var groups = [['TW','台灣'],['JP','日本'],['KR','韓國']];
+    var html='', g, i;
+    for (g=0; g<groups.length; g++){
+      html+='<h3>'+groups[g][1]+'</h3><div class="picker-grid">';
+      var list=PORTS[groups[g][0]];
+      for (i=0;i<list.length;i++){
+        html+='<button data-c="'+list[i][0]+'"'+(list[i][0]===cur?' class="on"':'')+'><b>'+list[i][0]+'</b><span>'+list[i][1]+'</span></button>';
+      }
+      html+='</div>';
+    }
+    $('pickerSheet').innerHTML=html;
+    $('picker').className='picker open';
+  }
+  $('fromBtn').addEventListener('click',function(){openPicker('from');});
+  $('toBtn').addEventListener('click',function(){openPicker('to');});
+  $('picker').addEventListener('click',function(e){
+    var b=e.target.closest('button[data-c]');
+    if (b){
+      var c=b.getAttribute('data-c');
+      if (pickSide==='from'){
+        // 出發地選了日韓 → 目的地自動變台灣
+        if (regionOf(c)!=='TW' && regionOf(S.to)!=='TW') S.to='TPE';
+        S.from=c;
+      } else {
+        if (regionOf(c)!=='TW' && regionOf(S.from)!=='TW') S.from='TPE';
+        S.to=c;
+      }
+      S.calData=null; renderBoard(); refreshActive();
+      $('picker').className='picker';
+    } else if (e.target===$('picker')) { $('picker').className='picker'; }
+  });
+
+  // ───── Tabs ─────
+  var active='promo';
+  document.querySelector('nav').addEventListener('click',function(e){
+    var b=e.target.closest('button'); if(!b) return;
+    var v=b.getAttribute('data-v');
+    var bs=document.querySelectorAll('nav button'), i;
+    for(i=0;i<bs.length;i++) bs[i].className = bs[i]===b?'on':'';
+    var vs=document.querySelectorAll('.view');
+    for(i=0;i<vs.length;i++) vs[i].className = vs[i].id==='v-'+v?'view on':'view';
+    active=v; refreshActive();
+  });
+  function refreshActive(){
+    if (active==='promo' && !S.promos) loadPromos(false);
+    if (active==='cal') loadCal();
+    if (active==='alert') loadAlerts();
+    if (active==='set') $('setBase').value=S.base;
+  }
+
+  // ───── 促銷 ─────
+  function loadPromos(force){
+    $('promoList').innerHTML='<p class="note"><span class="spin"></span>整理各家促銷中'+(force?'（重新抓取約需 30–60 秒）':'')+'…</p>';
+    api('/api/promos'+(force?'?refresh=1':'')).then(function(j){
+      S.promos=j; renderPromos();
+    }).catch(function(e){
+      $('promoList').innerHTML='<div class="empty"><b>抓不到促銷資料</b>'+esc(e.message)+'<br>到「設定」確認後端網址。</div>';
+    });
+  }
+  function renderPromos(){
+    if (!S.promos) return;
+    var reg=$('promoRegion').value, dst=$('promoDest').value;
+    var deals=S.promos.deals||[], out='', i, n=0;
+    var when=new Date(S.promos.fetchedAt);
+    $('promoNote').textContent='更新於 '+(when.getMonth()+1)+'/'+when.getDate()+' '+('0'+when.getHours()).slice(-2)+':'+('0'+when.getMinutes()).slice(-2)
+      +(S.promos.errors&&S.promos.errors.length?'，'+S.promos.errors.length+' 家抓取失敗（多為 JS 渲染頁）':'');
+    for (i=0;i<deals.length;i++){
+      var d=deals[i];
+      if (reg && d.region!==reg) continue;
+      if (dst){
+        var rs=(d.routes||[]).join(' ');
+        var hasJP=/NRT|HND|TYO|KIX|OSA|ITM|NGO|FUK|CTS|OKA|SDJ|KOJ|KMJ|HIJ|OKJ|TAK|KIJ|HKD|AOJ|ISG|日本/.test(rs+' '+d.title);
+        var hasKR=/ICN|GMP|SEL|PUS|CJU|TAE|CJJ|KWJ|韓國|首爾|釜山|濟州/.test(rs+' '+d.title);
+        if (dst==='JP' && !hasJP) continue;
+        if (dst==='KR' && !hasKR) continue;
+      }
+      n++;
+      out+='<div class="stub"><div class="al"><b>'+esc(d.airline)+'</b><span>'+esc(d.airlineName||alName(d.airline))+'</span></div>'
+        +'<div class="body"><div class="top"><div class="title">'+esc(d.title)+'</div>'
+        +(d.priceFrom?'<div class="price"><small>'+esc(d.currency||'')+'</small>'+nt(d.priceFrom)+'<small style="margin-left:2px">起</small></div>':'')+'</div>'
+        +'<div class="meta">'
+        +(d.routes&&d.routes.length?'<span>'+esc(d.routes.slice(0,4).join('、'))+(d.routes.length>4?' …':'')+'</span>':'')
+        +(d.oneWay===true?'<span>單程</span>':d.oneWay===false?'<span>來回</span>':'')
+        +(d.saleUntil?'<span>促銷至 '+esc(d.saleUntil)+'</span>':'')
+        +(d.travelFrom||d.travelTo?'<span>旅行期 '+esc(d.travelFrom||'')+'～'+esc(d.travelTo||'')+'</span>':'')
+        +'</div>'
+        +(d.note?'<div class="meta">'+esc(d.note)+'</div>':'')
+        +'<div class="act"><a href="'+esc(d.url)+'" target="_blank" rel="noopener">前往官網</a></div>'
+        +'</div></div>';
+    }
+    $('promoList').innerHTML = n ? out : '<div class="empty"><b>這個篩選下沒有促銷</b>換個篩選，或按「重新抓取」。</div>';
+  }
+  $('promoRegion').addEventListener('change',renderPromos);
+  $('promoDest').addEventListener('change',renderPromos);
+  $('promoRefresh').addEventListener('click',function(){ loadPromos(true); });
+
+  // ───── 月曆 ─────
+  function loadCal(){
+    if (!S.calMonth) S.calMonth=ymOf(new Date());
+    $('calTitle').textContent=monthLabel(S.calMonth);
+    var rt=$('calTrip').value;
+    $('calGrid').innerHTML=''; $('calList').innerHTML='';
+    $('calNote').innerHTML='<span class="spin"></span>讀取 '+S.from+' ⇄ '+S.to+' 最低價…';
+    api('/api/calendar?o='+S.from+'&d='+S.to+'&m='+S.calMonth+'&rt='+rt).then(function(j){
+      S.calData=j; renderCal();
+      return api('/api/agg?o='+S.from+'&d='+S.to+'&m='+S.calMonth+'&rt='+rt);
+    }).then(function(j){
+      renderAggList(j.items||[]);
+    }).catch(function(e){
+      $('calNote').textContent='讀取失敗：'+e.message;
+    });
+  }
+  function renderCal(){
+    var days=S.calData.days||{}, p=S.calMonth.split('-'), y=+p[0], m=+p[1];
+    var first=new Date(y,m-1,1).getDay(), last=new Date(y,m,0).getDate();
+    var min=Infinity, k, i;
+    for (k in days) if (days[k].price<min) min=days[k].price;
+    var html='';
+    for (i=0;i<first;i++) html+='<div class="d blank"></div>';
+    for (i=1;i<=last;i++){
+      var key=S.calMonth+'-'+('0'+i).slice(-2), d=days[key];
+      var cls='d'+(d?(d.price<=min*1.15?' low':''):' none')+(d&&d.price===min?' lowest':'')+(S.calSel===key?' sel':'');
+      html+='<div class="'+cls+'" data-k="'+key+'"><span class="n">'+i+'</span><span class="p">'+(d?nt(d.price):'·')+'</span></div>';
+    }
+    $('calGrid').innerHTML=html;
+    var cnt=Object.keys(days).length;
+    $('calNote').textContent = cnt ? '本月有 '+cnt+' 天有報價，最低 NT$'+nt(min)+'。橘色為接近最低價的日期。' : '這個月還沒有快取報價，試試其他月份或即時查價。';
+  }
+  function renderAggList(items){
+    var html='', i;
+    items=items.slice(0,15);
+    for (i=0;i<items.length;i++){
+      var it=items[i];
+      html+='<div class="stub"><div class="al"><b>'+esc(it.airline)+'</b><span>'+esc(alName(it.airline))+'</span></div>'
+        +'<div class="body"><div class="top"><div class="title">'+esc(it.origin)+' → '+esc(it.destination)+(it.returnAt?' → '+esc(it.origin):'')+'</div>'
+        +'<div class="price"><small>NT$</small>'+nt(it.price)+'</div></div>'
+        +'<div class="meta"><span>'+esc(String(it.departAt).slice(0,10))+(it.returnAt?' ～ '+esc(String(it.returnAt).slice(0,10)):'')+'</span>'
+        +'<span>'+(it.transfers?'轉機 '+it.transfers+' 次':'直飛')+'</span>'+(it.flight?'<span>'+esc(it.airline+it.flight)+'</span>':'')+'</div>'
+        +'<div class="act">'+(it.link?'<a href="'+esc(it.link)+'" target="_blank" rel="noopener">看這個價格</a>':'')
+        +'<button data-live="'+esc(String(it.departAt).slice(0,10))+'|'+esc(it.returnAt?String(it.returnAt).slice(0,10):'')+'">即時確認</button></div>'
+        +'</div></div>';
+    }
+    $('calList').innerHTML = html || '';
+  }
+  $('calGrid').addEventListener('click',function(e){
+    var d=e.target.closest('.d[data-k]'); if(!d||!S.calData) return;
+    var key=d.getAttribute('data-k'), it=S.calData.days[key];
+    S.calSel=key; renderCal();
+    if (it){ $('liveDep').value=String(it.departAt).slice(0,10); $('liveRet').value=it.returnAt?String(it.returnAt).slice(0,10):''; toast('已帶入日期，到「即時」可確認票價'); }
+  });
+  $('calList').addEventListener('click',function(e){
+    var b=e.target.closest('button[data-live]'); if(!b) return;
+    var p=b.getAttribute('data-live').split('|');
+    $('liveDep').value=p[0]; $('liveRet').value=p[1];
+    document.querySelector('nav button[data-v=live]').click();
+    $('liveGo').click();
+  });
+  $('calPrev').addEventListener('click',function(){ S.calMonth=addMonths(S.calMonth,-1); S.calSel=null; loadCal(); });
+  $('calNext').addEventListener('click',function(){ S.calMonth=addMonths(S.calMonth,1); S.calSel=null; loadCal(); });
+  $('calTrip').addEventListener('change',loadCal);
+
+  // ───── 即時 ─────
+  $('liveGo').addEventListener('click',function(){
+    var dep=$('liveDep').value, ret=$('liveRet').value;
+    if (!dep){ toast('請選去程日期'); return; }
+    var o=S.from, d=S.to;
+    // Duffel 需要機場碼，城市碼轉主要機場
+    var MAP={TYO:'NRT',OSA:'KIX',SEL:'ICN'};
+    o=MAP[o]||o; d=MAP[d]||d;
+    $('liveGo').disabled=true;
+    $('liveList').innerHTML='<p class="note"><span class="spin"></span>向航空系統詢價中…</p>';
+    api('/api/live?o='+o+'&d='+d+'&dep='+dep+(ret?'&ret='+ret:'')).then(function(j){
+      var items=j.items||[], html='', i, s, g;
+      if (!j.live) html+='<p class="note">目前是 Duffel 測試模式（模擬資料），換 live token 後為真實報價。</p>';
+      for (i=0;i<items.length;i++){
+        var it=items[i], legs='';
+        for (s=0;s<it.slices.length;s++){
+          var sl=it.slices[s], segs=sl.segments, t='';
+          for (g=0;g<segs.length;g++){
+            t+=(g?' ／ ':'')+esc(segs[g].flight)+' '+esc(segs[g].from)+' '+String(segs[g].dep).slice(11,16)+'→'+esc(segs[g].to)+' '+String(segs[g].arr).slice(11,16);
+          }
+          legs+='<span>'+(s===0?'去 ':'回 ')+t+(segs.length>1?'（轉機）':'')+'</span>';
+        }
+        html+='<div class="stub"><div class="al"><b>'+esc(it.airline)+'</b><span>'+esc(alName(it.airline)||it.airlineName)+'</span></div>'
+          +'<div class="body"><div class="top"><div class="title">'+esc(o)+(ret?' ⇄ ':' → ')+esc(d)+'</div>'
+          +'<div class="price"><small>'+esc(it.currency)+'</small>'+nt(it.price)+'</div></div>'
+          +'<div class="meta" style="flex-direction:column;gap:2px">'+legs+'</div></div></div>';
+      }
+      $('liveList').innerHTML += html || '<div class="empty"><b>這天沒有報價</b>換個日期，或確認 Duffel token 是否有效。</div>';
+    }).catch(function(e){
+      $('liveList').innerHTML='<div class="empty"><b>即時查價失敗</b>'+esc(e.message)+'</div>';
+    }).then(function(){ $('liveGo').disabled=false; });
+  });
+
+  // ───── 通知 ─────
+  var alMonthsSel={};
+  function renderAlMonths(){
+    var html='', i, m=ymOf(new Date());
+    for (i=0;i<8;i++){ var ym=addMonths(m,i); html+='<button data-m="'+ym+'"'+(alMonthsSel[ym]?' class="on"':'')+'>'+(+ym.split('-')[1])+' 月</button>'; }
+    $('alMonths').innerHTML=html;
+  }
+  $('alMonths').addEventListener('click',function(e){
+    var b=e.target.closest('button[data-m]'); if(!b) return;
+    var k=b.getAttribute('data-m'); if (alMonthsSel[k]) delete alMonthsSel[k]; else alMonthsSel[k]=1; renderAlMonths();
+  });
+  function loadAlerts(){
+    renderAlMonths();
+    api('/api/alerts').then(function(j){ S.alerts=j.alerts||[]; renderAlerts(); })
+      .catch(function(e){ $('alertList').innerHTML='<div class="empty"><b>讀不到通知清單</b>'+esc(e.message)+'</div>'; });
+  }
+  function renderAlerts(){
+    var html='', i;
+    for (i=0;i<S.alerts.length;i++){
+      var a=S.alerts[i], hit=a.lastPrice&&a.lastPrice<=a.maxPrice;
+      html+='<div class="alert-item" data-id="'+esc(a.id)+'">'
+        +'<button class="toggle'+(a.enabled?' on':'')+'" data-act="toggle" aria-label="啟用"></button>'
+        +'<div class="r"><b>'+esc(a.origin)+' ⇄ '+esc(a.destination)+'</b><span>'+(a.roundTrip?'來回':'單程')+'  低於 NT$'+nt(a.maxPrice)
+        +(a.months&&a.months.length?'  '+a.months.map(function(m){return (+m.split('-')[1])+'月';}).join('/'):'  未來三個月')+'</span></div>'
+        +'<div class="st'+(hit?' hit':'')+'">'+(a.lastPrice?'<b>NT$'+nt(a.lastPrice)+'</b>目前最低':'<b>—</b>尚未檢查')+'</div>'
+        +'<button class="btn danger" data-act="del" style="padding:6px 10px;font-size:13px">刪除</button></div>';
+    }
+    $('alertList').innerHTML = html || '<div class="empty"><b>還沒有通知條件</b>設定一條路線與價格門檻，達標會推播到 LINE。</div>';
+  }
+  $('alertList').addEventListener('click',function(e){
+    var b=e.target.closest('button[data-act]'); if(!b) return;
+    var id=b.closest('.alert-item').getAttribute('data-id'), act=b.getAttribute('data-act'), i, a;
+    for (i=0;i<S.alerts.length;i++) if (S.alerts[i].id===id) a=S.alerts[i];
+    if (!a) return;
+    if (act==='del'){
+      api('/api/alerts?id='+id,{method:'DELETE'}).then(function(j){ S.alerts=j.alerts; renderAlerts(); toast('已刪除'); }).catch(function(e){toast(e.message);});
+    } else {
+      a.enabled=!a.enabled;
+      api('/api/alerts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(a)})
+        .then(function(j){ S.alerts=j.alerts; renderAlerts(); }).catch(function(e){toast(e.message);});
+    }
+  });
+  $('alSave').addEventListener('click',function(){
+    var body={ origin:$('alFrom').value.toUpperCase(), destination:$('alTo').value.toUpperCase(),
+      roundTrip:$('alTrip').value==='1', maxPrice:parseInt($('alPrice').value,10), months:Object.keys(alMonthsSel).sort() };
+    if (!body.maxPrice){ toast('請填價格門檻'); return; }
+    api('/api/alerts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+      .then(function(j){ S.alerts=j.alerts; renderAlerts(); toast('已加入通知'); $('alPrice').value=''; alMonthsSel={}; renderAlMonths(); })
+      .catch(function(e){ toast('加入失敗：'+e.message); });
+  });
+  $('alRun').addEventListener('click',function(){
+    $('alRun').disabled=true; toast('檢查中…');
+    api('/api/run-alerts').then(function(){ loadAlerts(); toast('已檢查，達標會推 LINE'); })
+      .catch(function(e){ toast(e.message); }).then(function(){ $('alRun').disabled=false; });
+  });
+
+  // ───── 設定 ─────
+  $('setSave').addEventListener('click',function(){
+    S.base=$('setBase').value.trim(); localStorage.setItem('fd_base',S.base); S.promos=null; toast('已儲存');
+  });
+  $('setPing').addEventListener('click',function(){
+    S.base=$('setBase').value.trim();
+    $('setStatus').textContent='連線中…';
+    api('/api/health').then(function(j){
+      $('setStatus').textContent='連線正常\nTravelpayouts：'+(j.tp?'✓':'✗ 未設 TP_TOKEN')+'\nDuffel：'+(j.duffel?'✓':'✗ 未設 DUFFEL_TOKEN')
+        +'\nClaude：'+(j.claude?'✓':'✗ 未設 ANTHROPIC_API_KEY')+'\nLINE：'+(j.line?'✓':'✗ 未設 LINE token / user id')
+        +(j.lastCron?'\n上次 Cron：'+new Date(j.lastCron.at).toLocaleString('zh-TW'):'\n上次 Cron：尚未執行');
+    }).catch(function(e){ $('setStatus').textContent='連線失敗：'+e.message; });
+  });
+  $('setLine').addEventListener('click',function(){
+    api('/api/line-test').then(function(j){ toast(j.ok?'LINE 已送出':'LINE 送出失敗'); }).catch(function(e){toast(e.message);});
+  });
+
+  // ───── 初始化 ─────
+  var today=new Date(), d1=new Date(today.getTime()+30*86400000), d2=new Date(today.getTime()+34*86400000);
+  $('liveDep').value=d1.toISOString().slice(0,10); $('liveRet').value=d2.toISOString().slice(0,10);
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });
+  }
+  renderBoard(); refreshActive();
+})();
+</script>
+</body>
+</html>
