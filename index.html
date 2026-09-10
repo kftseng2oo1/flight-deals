@@ -63,6 +63,13 @@
   .btn:disabled{opacity:.5}
 
   .note{font-size:13px;color:var(--muted);margin:0 0 10px}
+  .sites{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:10px 12px 6px;margin-bottom:12px}
+  .sites h4{margin:0 0 6px;font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.04em}
+  .sites .grp{display:flex;align-items:center;gap:6px;margin-bottom:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .sites .grp::-webkit-scrollbar{display:none}
+  .sites .grp .lbl{flex:0 0 auto;font-size:12px;color:var(--muted);width:30px}
+  .sites .grp a{flex:0 0 auto;text-decoration:none;font-size:13px;padding:5px 10px;border-radius:999px;border:1px solid var(--line);background:var(--bg);color:var(--ink);white-space:nowrap}
+  .sites .grp a b{color:var(--route);font-weight:700;margin-right:3px}
   .empty{border:1.5px dashed var(--line);border-radius:14px;padding:22px 16px;text-align:center;color:var(--muted);font-size:14px}
   .empty b{display:block;color:var(--ink);font-weight:600;margin-bottom:4px}
 
@@ -166,7 +173,8 @@
       <select id="promoDest"><option value="">台日 + 台韓</option><option value="JP">只看台日</option><option value="KR">只看台韓</option></select>
       <button class="btn ghost" id="promoRefresh">重新抓取</button>
     </div>
-    <p class="note" id="promoNote">各航空促銷頁由後端抓取、AI 整理，每 12 小時更新一次。</p>
+    <div class="sites" id="sites"><h4>航空公司官網</h4></div>
+    <p class="note" id="promoNote">各航空促銷由後端搜尋、AI 整理，每天更新一次。</p>
     <div id="promoList"></div>
   </section>
 
@@ -261,6 +269,15 @@
     KE:'大韓', OZ:'韓亞', LJ:'Jin Air', TW:"T'way", '7C':'濟州', BX:'釜山航空', ZE:'易斯達', RS:'首爾航空', RF:'Aero K',
     CX:'國泰', HX:'香港航空', UO:'香港快運'
   };
+  var OFFICIAL = {
+    IT:'https://www.tigerairtw.com/zh-tw', JX:'https://www.starlux-airlines.com/zh-TW', BR:'https://www.evaair.com/zh-tw/',
+    CI:'https://www.china-airlines.com/tw/zh', AE:'https://www.mandarin-airlines.com/',
+    JL:'https://www.jal.co.jp/tw/zhtw/', NH:'https://www.ana.co.jp/zh/tw/', MM:'https://www.flypeach.com/tw',
+    GK:'https://www.jetstar.com/tw/zh', TR:'https://www.flyscoot.com/zhtw',
+    KE:'https://www.koreanair.com/tw/zh', OZ:'https://flyasiana.com/C/TW/ZH/index', LJ:'https://www.jinair.com/',
+    TW:'https://www.twayair.com/', '7C':'https://www.jejuair.net/', BX:'https://www.airbusan.com/', ZE:'https://www.eastarjet.com/', RS:'https://flyairseoul.com/'
+  };
+  var SITE_GROUPS = [['台',['CI','BR','JX','IT','AE']],['日',['JL','NH','MM','GK','TR']],['韓',['KE','OZ','LJ','TW','7C','BX','ZE','RS']]];
   var QUICK = [['TPE','TYO'],['TPE','OSA'],['TPE','FUK'],['TPE','OKA'],['TPE','CTS'],['TPE','SEL'],['TPE','PUS'],['KHH','TYO'],['KHH','SEL']];
 
   function portName(code){
@@ -372,9 +389,21 @@
     if (active==='set') $('setBase').value=S.base;
   }
 
+  // ───── 航空官網 ─────
+  (function(){
+    var html='', g, i;
+    for (g=0; g<SITE_GROUPS.length; g++){
+      html+='<div class="grp"><span class="lbl">'+SITE_GROUPS[g][0]+'</span>';
+      var codes=SITE_GROUPS[g][1];
+      for (i=0;i<codes.length;i++) html+='<a href="'+OFFICIAL[codes[i]]+'" target="_blank" rel="noopener"><b>'+codes[i]+'</b>'+alName(codes[i])+'</a>';
+      html+='</div>';
+    }
+    $('sites').insertAdjacentHTML('beforeend', html);
+  })();
+
   // ───── 促銷 ─────
   function loadPromos(force){
-    $('promoList').innerHTML='<p class="note"><span class="spin"></span>整理各家促銷中'+(force?'（重新抓取約需 30–60 秒）':'')+'…</p>';
+    $('promoList').innerHTML='<p class="note"><span class="spin"></span>整理各家促銷中'+(force?'（重新抓取約需 1–2 分鐘）':'')+'…</p>';
     api('/api/promos'+(force?'?refresh=1':'')).then(function(j){
       S.promos=j; renderPromos();
     }).catch(function(e){
@@ -387,7 +416,7 @@
     var deals=S.promos.deals||[], out='', i, n=0;
     var when=new Date(S.promos.fetchedAt);
     $('promoNote').textContent='更新於 '+(when.getMonth()+1)+'/'+when.getDate()+' '+('0'+when.getHours()).slice(-2)+':'+('0'+when.getMinutes()).slice(-2)
-      +(S.promos.errors&&S.promos.errors.length?'，'+S.promos.errors.length+' 家抓取失敗（多為 JS 渲染頁）':'');
+      +(S.promos.errors&&S.promos.errors.length?'，'+S.promos.errors.length+' 家官網直抓失敗、已改用搜尋':'');
     for (i=0;i<deals.length;i++){
       var d=deals[i];
       if (reg && d.region!==reg) continue;
@@ -409,7 +438,8 @@
         +(d.travelFrom||d.travelTo?'<span>旅行期 '+esc(d.travelFrom||'')+'～'+esc(d.travelTo||'')+'</span>':'')
         +'</div>'
         +(d.note?'<div class="meta">'+esc(d.note)+'</div>':'')
-        +'<div class="act"><a href="'+esc(d.url)+'" target="_blank" rel="noopener">前往官網</a></div>'
+        +'<div class="act">'+(d.url?'<a href="'+esc(d.url)+'" target="_blank" rel="noopener">'+(d.src==='promo'?'前往官網':'查看來源')+'</a>':'')
+        +(OFFICIAL[d.airline]&&d.src!=='promo'?'<a href="'+OFFICIAL[d.airline]+'" target="_blank" rel="noopener">'+esc(d.airlineName||alName(d.airline))+'官網</a>':'')+'</div>'
         +'</div></div>';
     }
     $('promoList').innerHTML = n ? out : '<div class="empty"><b>這個篩選下沒有促銷</b>換個篩選，或按「重新抓取」。</div>';
@@ -580,7 +610,7 @@
     S.base=$('setBase').value.trim();
     $('setStatus').textContent='連線中…';
     api('/api/health').then(function(j){
-      $('setStatus').textContent='連線正常\nTravelpayouts：'+(j.tp?'✓':'✗ 未設 TP_TOKEN')+'\nDuffel：'+(j.duffel?'✓':'✗ 未設 DUFFEL_TOKEN')
+      $('setStatus').textContent='連線正常\nKV FLIGHT_KV：'+(j.kv?'✓':'✗ 未綁定')+'\nTravelpayouts：'+(j.tp?'✓':'✗ 未設 TP_TOKEN')+'\nDuffel：'+(j.duffel?'✓':'✗ 未設 DUFFEL_TOKEN')
         +'\nClaude：'+(j.claude?'✓':'✗ 未設 ANTHROPIC_API_KEY')+'\nLINE：'+(j.line?'✓':'✗ 未設 LINE token / user id')
         +(j.lastCron?'\n上次 Cron：'+new Date(j.lastCron.at).toLocaleString('zh-TW'):'\n上次 Cron：尚未執行');
     }).catch(function(e){ $('setStatus').textContent='連線失敗：'+e.message; });
