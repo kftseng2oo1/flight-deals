@@ -116,6 +116,10 @@
   .months{display:flex;flex-wrap:wrap;gap:6px}
   .months button{padding:5px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);font-size:13px}
   .months button.on{background:#E6F1F5;border-color:var(--route);color:var(--route)}
+  .src-item{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--line);font-size:13px}
+  .src-item .u{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .src-item .u small{display:block;color:var(--muted)}
+  .src-item .m{color:var(--hit);font-size:11px;flex:0 0 auto}
   .alert-item{display:flex;align-items:center;gap:10px;background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:8px}
   .alert-item .r{flex:1;min-width:0}
   .alert-item .r b{font-size:16px}
@@ -238,6 +242,18 @@
         <button class="btn ghost" id="setLine">測試 LINE</button>
       </div>
       <pre id="setStatus" style="font-size:12px;white-space:pre-wrap;color:var(--muted);margin:10px 0 0"></pre>
+    </div>
+    <div class="form">
+      <label>促銷來源收藏（搜尋到的頁面會自動收進來，下次直接抓、不再搜尋）</label>
+      <div class="row">
+        <input id="srcUrl" placeholder="https://…（新聞 / 整理站網址）" style="flex:3">
+        <input id="srcAir" placeholder="航空代碼 IT,MM" style="flex:1;text-transform:uppercase">
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px">
+        <button class="btn" id="srcAdd">加入</button>
+        <button class="btn ghost" id="srcLoad">重新整理清單</button>
+      </div>
+      <div id="srcList" style="margin-top:10px"></div>
     </div>
   </section>
 </main>
@@ -386,7 +402,7 @@
     if (active==='promo' && !S.promos) loadPromos(false);
     if (active==='cal') loadCal();
     if (active==='alert') loadAlerts();
-    if (active==='set') $('setBase').value=S.base;
+    if (active==='set'){ $('setBase').value=S.base; loadSources(); }
   }
 
   // ───── 航空官網 ─────
@@ -403,7 +419,7 @@
 
   // ───── 促銷 ─────
   function loadPromos(force){
-    $('promoList').innerHTML='<p class="note"><span class="spin"></span>整理各家促銷中'+(force?'（重新抓取約需 1–2 分鐘）':'')+'…</p>';
+    $('promoList').innerHTML='<p class="note"><span class="spin"></span>整理各家促銷中'+(force?'（重新抓取約需 1 分鐘）':'')+'…</p>';
     api('/api/promos'+(force?'?refresh=1':'')).then(function(j){
       S.promos=j; renderPromos();
     }).catch(function(e){
@@ -416,7 +432,7 @@
     var deals=S.promos.deals||[], out='', i, n=0;
     var when=new Date(S.promos.fetchedAt);
     $('promoNote').textContent='更新於 '+(when.getMonth()+1)+'/'+when.getDate()+' '+('0'+when.getHours()).slice(-2)+':'+('0'+when.getMinutes()).slice(-2)
-      +(S.promos.errors&&S.promos.errors.length?'，'+S.promos.errors.length+' 家官網直抓失敗、已改用搜尋':'');
+      +(S.promos.usage?'，本輪 '+S.promos.usage.claudeCalls+' 次呼叫 / '+S.promos.usage.webSearches+' 次搜尋':'')+(S.promos.throttled?'（6 小時內已抓過，未重新搜尋）':'');
     for (i=0;i<deals.length;i++){
       var d=deals[i];
       if (reg && d.region!==reg) continue;
@@ -438,9 +454,16 @@
         +(d.travelFrom||d.travelTo?'<span>旅行期 '+esc(d.travelFrom||'')+'～'+esc(d.travelTo||'')+'</span>':'')
         +'</div>'
         +(d.note?'<div class="meta">'+esc(d.note)+'</div>':'')
-        +'<div class="act">'+(d.url?'<a href="'+esc(d.url)+'" target="_blank" rel="noopener">'+(d.src==='promo'?'前往官網':'查看來源')+'</a>':'')
+        +'<div class="act">'+(d.url?'<a href="'+esc(d.url)+'" target="_blank" rel="noopener">'+(d.src==='promo'?'前往官網':d.src==='saved'?'收藏來源':'查看來源')+'</a>':'')
         +(OFFICIAL[d.airline]&&d.src!=='promo'?'<a href="'+OFFICIAL[d.airline]+'" target="_blank" rel="noopener">'+esc(d.airlineName||alName(d.airline))+'官網</a>':'')+'</div>'
         +'</div></div>';
+    }
+    if (!n && !deals.length && S.promos.errors && S.promos.errors.length){
+      var firstErr='', k;
+      for (k=0;k<S.promos.errors.length;k++){ if (S.promos.errors[k].error && !/^HTTP|JS 渲染/.test(S.promos.errors[k].error) && !S.promos.errors[k].fallback){ firstErr=S.promos.errors[k].error; break; } }
+      if (!firstErr) for (k=0;k<S.promos.errors.length;k++){ if (S.promos.errors[k].raw){ firstErr='搜尋有回覆但無法解析：'+S.promos.errors[k].raw.slice(0,120)+'…'; break; } }
+      $('promoList').innerHTML='<div class="empty"><b>後端沒有取得任何促銷</b>'+(firstErr?esc(firstErr):'各家都回傳空結果')+'</div>';
+      return;
     }
     $('promoList').innerHTML = n ? out : '<div class="empty"><b>這個篩選下沒有促銷</b>換個篩選，或按「重新抓取」。</div>';
   }
@@ -617,6 +640,32 @@
   });
   $('setLine').addEventListener('click',function(){
     api('/api/line-test').then(function(j){ toast(j.ok?'LINE 已送出':'LINE 送出失敗'); }).catch(function(e){toast(e.message);});
+  });
+
+  // ───── 來源收藏 ─────
+  function renderSources(ls){
+    var urls=Object.keys(ls||{}), html='', i;
+    urls.sort(function(a,b){ return (ls[b].lastSeen||0)-(ls[a].lastSeen||0); });
+    for (i=0;i<urls.length;i++){
+      var x=ls[urls[i]], host=urls[i].replace(/^https?:\/\//,'').split('/')[0];
+      html+='<div class="src-item" data-u="'+esc(urls[i])+'"><div class="u"><a href="'+esc(urls[i])+'" target="_blank" rel="noopener">'+esc(host)+'</a>'
+        +'<small>'+esc((x.airlines||[]).join(' ')||'—')+'  抓到 '+(x.hits||0)+' 次'+(x.fails?'  失敗 '+x.fails:'')+'</small></div>'
+        +(x.manual?'<span class="m">手動</span>':'')
+        +'<button class="btn danger" data-act="srcdel" style="padding:4px 8px;font-size:12px">刪</button></div>';
+    }
+    $('srcList').innerHTML = html || '<p class="note" style="margin:0">還沒有收藏的來源，跑過一次「重新抓取」就會自動累積。</p>';
+  }
+  function loadSources(){ api('/api/sources').then(function(j){ renderSources(j.sources); }).catch(function(e){ toast(e.message); }); }
+  $('srcLoad').addEventListener('click',loadSources);
+  $('srcAdd').addEventListener('click',function(){
+    var url=$('srcUrl').value.trim(); if(!/^https?:\/\//.test(url)){ toast('請貼完整網址'); return; }
+    api('/api/sources',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:url,airlines:$('srcAir').value})})
+      .then(function(j){ renderSources(j.sources); $('srcUrl').value=''; $('srcAir').value=''; toast('已收藏'); }).catch(function(e){ toast(e.message); });
+  });
+  $('srcList').addEventListener('click',function(e){
+    var b=e.target.closest('button[data-act=srcdel]'); if(!b) return;
+    var u=b.closest('.src-item').getAttribute('data-u');
+    api('/api/sources?url='+encodeURIComponent(u),{method:'DELETE'}).then(function(j){ renderSources(j.sources); }).catch(function(e){ toast(e.message); });
   });
 
   // ───── 初始化 ─────
