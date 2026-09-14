@@ -63,13 +63,14 @@
   .btn:disabled{opacity:.5}
 
   .note{font-size:13px;color:var(--muted);margin:0 0 10px}
-  .sites{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:10px 12px 6px;margin-bottom:12px}
-  .sites h4{margin:0 0 6px;font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.04em}
-  .sites .grp{display:flex;align-items:center;gap:6px;margin-bottom:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
-  .sites .grp::-webkit-scrollbar{display:none}
-  .sites .grp .lbl{flex:0 0 auto;font-size:12px;color:var(--muted);width:30px}
-  .sites .grp a{flex:0 0 auto;text-decoration:none;font-size:13px;padding:5px 10px;border-radius:999px;border:1px solid var(--line);background:var(--bg);color:var(--ink);white-space:nowrap}
-  .sites .grp a b{color:var(--route);font-weight:700;margin-right:3px}
+  .lk{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:12px 12px 6px;margin-bottom:12px}
+  .lk h4{margin:0 0 8px;font-size:13px;font-weight:600;color:var(--muted);letter-spacing:.04em}
+  .lk .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px}
+  .lk .grid a{display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 10px;min-height:48px}
+  .lk .grid a b{flex:0 0 34px;font-size:13px;font-weight:800;color:var(--route);letter-spacing:.02em}
+  .lk .grid a span{flex:1;font-size:14px;line-height:1.25}
+  .lk .grid a small{display:block;font-size:11px;color:var(--muted)}
+  .lk .grid a .x{flex:0 0 auto;color:#B42318;font-size:12px;padding:2px 6px}
   .empty{border:1.5px dashed var(--line);border-radius:14px;padding:22px 16px;text-align:center;color:var(--muted);font-size:14px}
   .empty b{display:block;color:var(--ink);font-weight:600;margin-bottom:4px}
 
@@ -170,16 +171,17 @@
 </div>
 
 <main>
-  <!-- 促銷 -->
+  <!-- 連結 -->
   <section class="view on" id="v-promo">
-    <div class="toolbar">
-      <select id="promoRegion"><option value="">全部航空</option><option value="TW">台灣籍</option><option value="JP">日本籍</option><option value="KR">韓國籍</option></select>
-      <select id="promoDest"><option value="">台日 + 台韓</option><option value="JP">只看台日</option><option value="KR">只看台韓</option></select>
-      <button class="btn ghost" id="promoRefresh">重新抓取</button>
+    <div id="links"></div>
+    <div class="form">
+      <label>自訂連結</label>
+      <div class="row">
+        <input id="lkName" placeholder="名稱" style="flex:1">
+        <input id="lkUrl" placeholder="https://…" style="flex:2">
+      </div>
+      <div style="margin-top:10px"><button class="btn" id="lkAdd">加入</button></div>
     </div>
-    <div class="sites" id="sites"><h4>航空公司官網</h4></div>
-    <p class="note" id="promoNote">各航空促銷由後端搜尋、AI 整理，每天更新一次。</p>
-    <div id="promoList"></div>
   </section>
 
   <!-- 月曆 -->
@@ -243,23 +245,11 @@
       </div>
       <pre id="setStatus" style="font-size:12px;white-space:pre-wrap;color:var(--muted);margin:10px 0 0"></pre>
     </div>
-    <div class="form">
-      <label>促銷來源收藏（搜尋到的頁面會自動收進來，下次直接抓、不再搜尋）</label>
-      <div class="row">
-        <input id="srcUrl" placeholder="https://…（新聞 / 整理站網址）" style="flex:3">
-        <input id="srcAir" placeholder="航空代碼 IT,MM" style="flex:1;text-transform:uppercase">
-      </div>
-      <div style="margin-top:10px;display:flex;gap:8px">
-        <button class="btn" id="srcAdd">加入</button>
-        <button class="btn ghost" id="srcLoad">重新整理清單</button>
-      </div>
-      <div id="srcList" style="margin-top:10px"></div>
-    </div>
   </section>
 </main>
 
 <nav>
-  <button data-v="promo" class="on"><i>🏷️</i>促銷</button>
+  <button data-v="promo" class="on"><i>🔗</i>連結</button>
   <button data-v="cal"><i>📅</i>月曆</button>
   <button data-v="live"><i>⚡</i>即時</button>
   <button data-v="alert"><i>🔔</i>通知</button>
@@ -285,15 +275,6 @@
     KE:'大韓', OZ:'韓亞', LJ:'Jin Air', TW:"T'way", '7C':'濟州', BX:'釜山航空', ZE:'易斯達', RS:'首爾航空', RF:'Aero K',
     CX:'國泰', HX:'香港航空', UO:'香港快運'
   };
-  var OFFICIAL = {
-    IT:'https://www.tigerairtw.com/zh-tw', JX:'https://www.starlux-airlines.com/zh-TW', BR:'https://www.evaair.com/zh-tw/',
-    CI:'https://www.china-airlines.com/tw/zh', AE:'https://www.mandarin-airlines.com/',
-    JL:'https://www.jal.co.jp/tw/zhtw/', NH:'https://www.ana.co.jp/zh/tw/', MM:'https://www.flypeach.com/tw',
-    GK:'https://www.jetstar.com/tw/zh', TR:'https://www.flyscoot.com/zhtw',
-    KE:'https://www.koreanair.com/tw/zh', OZ:'https://flyasiana.com/C/TW/ZH/index', LJ:'https://www.jinair.com/',
-    TW:'https://www.twayair.com/', '7C':'https://www.jejuair.net/', BX:'https://www.airbusan.com/', ZE:'https://www.eastarjet.com/', RS:'https://flyairseoul.com/'
-  };
-  var SITE_GROUPS = [['台',['CI','BR','JX','IT','AE']],['日',['JL','NH','MM','GK','TR']],['韓',['KE','OZ','LJ','TW','7C','BX','ZE','RS']]];
   var QUICK = [['TPE','TYO'],['TPE','OSA'],['TPE','FUK'],['TPE','OKA'],['TPE','CTS'],['TPE','SEL'],['TPE','PUS'],['KHH','TYO'],['KHH','SEL']];
 
   function portName(code){
@@ -314,7 +295,7 @@
     to: localStorage.getItem('fd_to') || 'TYO',
     base: localStorage.getItem('fd_base') || 'https://arcar.kftseng2oo1.workers.dev/flights',
     calMonth: null, calData: null, calSel: null,
-    promos: null, alerts: []
+    alerts: []
   };
 
   var $ = function(id){ return document.getElementById(id); };
@@ -399,77 +380,88 @@
     active=v; refreshActive();
   });
   function refreshActive(){
-    if (active==='promo' && !S.promos) loadPromos(false);
     if (active==='cal') loadCal();
     if (active==='alert') loadAlerts();
-    if (active==='set'){ $('setBase').value=S.base; loadSources(); }
+    if (active==='set') $('setBase').value=S.base;
   }
 
-  // ───── 航空官網 ─────
-  (function(){
+  // ───── 連結目錄 ─────
+  var LINKS = [
+    ['台灣航空', [
+      ['CI','中華航空','https://www.china-airlines.com/tw/zh'],
+      ['BR','長榮航空','https://www.evaair.com/zh-tw/'],
+      ['JX','星宇航空','https://www.starlux-airlines.com/zh-TW'],
+      ['IT','台灣虎航','https://www.tigerairtw.com/zh-tw'],
+      ['AE','華信航空','https://www.mandarin-airlines.com/']
+    ]],
+    ['日本航空公司', [
+      ['JL','日本航空 JAL','https://www.jal.co.jp/tw/zhtw/'],
+      ['NH','全日空 ANA','https://www.ana.co.jp/zh/tw/'],
+      ['MM','樂桃 Peach','https://www.flypeach.com/tw'],
+      ['GK','捷星日本','https://www.jetstar.com/tw/zh'],
+      ['TR','酷航 Scoot','https://www.flyscoot.com/zhtw']
+    ]],
+    ['韓國航空公司', [
+      ['KE','大韓航空','https://www.koreanair.com/tw/zh'],
+      ['OZ','韓亞航空','https://flyasiana.com/C/TW/ZH/index'],
+      ['LJ','真航空 Jin Air','https://www.jinair.com/'],
+      ['TW',"德威 T'way",'https://www.twayair.com/'],
+      ['7C','濟州航空','https://www.jejuair.net/'],
+      ['BX','釜山航空','https://www.airbusan.com/'],
+      ['ZE','易斯達航空','https://www.eastarjet.com/'],
+      ['RS','首爾航空','https://flyairseoul.com/']
+    ]],
+    ['旅行社', [
+      ['可樂','可樂旅遊','https://www.colatour.com.tw/'],
+      ['雄獅','雄獅旅遊','https://www.liontravel.com/'],
+      ['東南','東南旅遊','https://www.settour.com.tw/'],
+      ['易遊','易遊網 ezTravel','https://www.eztravel.com.tw/'],
+      ['易飛','易飛網 ezfly','https://www.ezfly.com/'],
+      ['燦星','燦星旅遊','https://www.startravel.com.tw/'],
+      ['山富','山富旅遊','https://www.travel4u.com.tw/'],
+      ['五福','五福旅遊','https://www.lifetour.com.tw/']
+    ]],
+    ['比價 / 情報', [
+      ['Trip','Trip.com','https://tw.trip.com/flights/'],
+      ['Sky','Skyscanner','https://www.skyscanner.com.tw/'],
+      ['G','Google 機票','https://www.google.com/travel/flights?hl=zh-TW'],
+      ['Avia','Aviasales','https://www.aviasales.com/']
+    ]]
+  ];
+  function customLinks(){ try { return JSON.parse(localStorage.getItem('fd_links')||'[]'); } catch(e){ return []; } }
+  function renderLinks(){
     var html='', g, i;
-    for (g=0; g<SITE_GROUPS.length; g++){
-      html+='<div class="grp"><span class="lbl">'+SITE_GROUPS[g][0]+'</span>';
-      var codes=SITE_GROUPS[g][1];
-      for (i=0;i<codes.length;i++) html+='<a href="'+OFFICIAL[codes[i]]+'" target="_blank" rel="noopener"><b>'+codes[i]+'</b>'+alName(codes[i])+'</a>';
-      html+='</div>';
+    for (g=0; g<LINKS.length; g++){
+      html+='<div class="lk"><h4>'+LINKS[g][0]+'</h4><div class="grid">';
+      var items=LINKS[g][1];
+      for (i=0;i<items.length;i++) html+='<a href="'+items[i][2]+'" target="_blank" rel="noopener"><b>'+items[i][0]+'</b><span>'+items[i][1]+'</span></a>';
+      html+='</div></div>';
     }
-    $('sites').insertAdjacentHTML('beforeend', html);
-  })();
-
-  // ───── 促銷 ─────
-  function loadPromos(force){
-    $('promoList').innerHTML='<p class="note"><span class="spin"></span>整理各家促銷中'+(force?'（重新抓取約需 1 分鐘）':'')+'…</p>';
-    api('/api/promos'+(force?'?refresh=1':'')).then(function(j){
-      S.promos=j; renderPromos();
-    }).catch(function(e){
-      $('promoList').innerHTML='<div class="empty"><b>抓不到促銷資料</b>'+esc(e.message)+'<br>到「設定」確認後端網址。</div>';
-    });
-  }
-  function renderPromos(){
-    if (!S.promos) return;
-    var reg=$('promoRegion').value, dst=$('promoDest').value;
-    var deals=S.promos.deals||[], out='', i, n=0;
-    var when=new Date(S.promos.fetchedAt);
-    $('promoNote').textContent='更新於 '+(when.getMonth()+1)+'/'+when.getDate()+' '+('0'+when.getHours()).slice(-2)+':'+('0'+when.getMinutes()).slice(-2)
-      +(S.promos.usage?'，本輪 '+S.promos.usage.claudeCalls+' 次呼叫 / '+S.promos.usage.webSearches+' 次搜尋':'')+(S.promos.throttled?'（6 小時內已抓過，未重新搜尋）':'');
-    for (i=0;i<deals.length;i++){
-      var d=deals[i];
-      if (reg && d.region!==reg) continue;
-      if (dst){
-        var rs=(d.routes||[]).join(' ');
-        var hasJP=/NRT|HND|TYO|KIX|OSA|ITM|NGO|FUK|CTS|OKA|SDJ|KOJ|KMJ|HIJ|OKJ|TAK|KIJ|HKD|AOJ|ISG|日本/.test(rs+' '+d.title);
-        var hasKR=/ICN|GMP|SEL|PUS|CJU|TAE|CJJ|KWJ|韓國|首爾|釜山|濟州/.test(rs+' '+d.title);
-        if (dst==='JP' && !hasJP) continue;
-        if (dst==='KR' && !hasKR) continue;
+    var cu=customLinks();
+    if (cu.length){
+      html+='<div class="lk"><h4>自訂</h4><div class="grid">';
+      for (i=0;i<cu.length;i++){
+        var host=cu[i].url.replace(/^https?:\/\//,'').split('/')[0];
+        html+='<a href="'+esc(cu[i].url)+'" target="_blank" rel="noopener"><span>'+esc(cu[i].name)+'<small>'+esc(host)+'</small></span><button class="x" data-del="'+i+'">刪</button></a>';
       }
-      n++;
-      out+='<div class="stub"><div class="al"><b>'+esc(d.airline)+'</b><span>'+esc(d.airlineName||alName(d.airline))+'</span></div>'
-        +'<div class="body"><div class="top"><div class="title">'+esc(d.title)+'</div>'
-        +(d.priceFrom?'<div class="price"><small>'+esc(d.currency||'')+'</small>'+nt(d.priceFrom)+'<small style="margin-left:2px">起</small></div>':'')+'</div>'
-        +'<div class="meta">'
-        +(d.routes&&d.routes.length?'<span>'+esc(d.routes.slice(0,4).join('、'))+(d.routes.length>4?' …':'')+'</span>':'')
-        +(d.oneWay===true?'<span>單程</span>':d.oneWay===false?'<span>來回</span>':'')
-        +(d.saleUntil?'<span>促銷至 '+esc(d.saleUntil)+'</span>':'')
-        +(d.travelFrom||d.travelTo?'<span>旅行期 '+esc(d.travelFrom||'')+'～'+esc(d.travelTo||'')+'</span>':'')
-        +'</div>'
-        +(d.note?'<div class="meta">'+esc(d.note)+'</div>':'')
-        +'<div class="act">'+(d.url?'<a href="'+esc(d.url)+'" target="_blank" rel="noopener">'+(d.src==='promo'?'前往官網':d.src==='saved'?'收藏來源':'查看來源')+'</a>':'')
-        +(OFFICIAL[d.airline]&&d.src!=='promo'?'<a href="'+OFFICIAL[d.airline]+'" target="_blank" rel="noopener">'+esc(d.airlineName||alName(d.airline))+'官網</a>':'')+'</div>'
-        +'</div></div>';
+      html+='</div></div>';
     }
-    if (!n && !deals.length && S.promos.errors && S.promos.errors.length){
-      var firstErr='', k;
-      for (k=0;k<S.promos.errors.length;k++){ if (S.promos.errors[k].error && !/^HTTP|JS 渲染/.test(S.promos.errors[k].error) && !S.promos.errors[k].fallback){ firstErr=S.promos.errors[k].error; break; } }
-      if (!firstErr) for (k=0;k<S.promos.errors.length;k++){ if (S.promos.errors[k].raw){ firstErr='搜尋有回覆但無法解析：'+S.promos.errors[k].raw.slice(0,120)+'…'; break; } }
-      $('promoList').innerHTML='<div class="empty"><b>後端沒有取得任何促銷</b>'+(firstErr?esc(firstErr):'各家都回傳空結果')+'</div>';
-      return;
-    }
-    $('promoList').innerHTML = n ? out : '<div class="empty"><b>這個篩選下沒有促銷</b>換個篩選，或按「重新抓取」。</div>';
+    $('links').innerHTML=html;
   }
-  $('promoRegion').addEventListener('change',renderPromos);
-  $('promoDest').addEventListener('change',renderPromos);
-  $('promoRefresh').addEventListener('click',function(){ loadPromos(true); });
+  $('links').addEventListener('click',function(e){
+    var b=e.target.closest('button[data-del]'); if(!b) return;
+    e.preventDefault();
+    var cu=customLinks(); cu.splice(+b.getAttribute('data-del'),1);
+    localStorage.setItem('fd_links',JSON.stringify(cu)); renderLinks();
+  });
+  $('lkAdd').addEventListener('click',function(){
+    var name=$('lkName').value.trim(), url=$('lkUrl').value.trim();
+    if (!name||!/^https?:\/\//.test(url)){ toast('請填名稱與完整網址'); return; }
+    var cu=customLinks(); cu.push({name:name,url:url});
+    localStorage.setItem('fd_links',JSON.stringify(cu)); renderLinks();
+    $('lkName').value=''; $('lkUrl').value=''; toast('已加入');
+  });
+  renderLinks();
 
   // ───── 月曆 ─────
   function loadCal(){
@@ -640,32 +632,6 @@
   });
   $('setLine').addEventListener('click',function(){
     api('/api/line-test').then(function(j){ toast(j.ok?'LINE 已送出':'LINE 送出失敗'); }).catch(function(e){toast(e.message);});
-  });
-
-  // ───── 來源收藏 ─────
-  function renderSources(ls){
-    var urls=Object.keys(ls||{}), html='', i;
-    urls.sort(function(a,b){ return (ls[b].lastSeen||0)-(ls[a].lastSeen||0); });
-    for (i=0;i<urls.length;i++){
-      var x=ls[urls[i]], host=urls[i].replace(/^https?:\/\//,'').split('/')[0];
-      html+='<div class="src-item" data-u="'+esc(urls[i])+'"><div class="u"><a href="'+esc(urls[i])+'" target="_blank" rel="noopener">'+esc(host)+'</a>'
-        +'<small>'+esc((x.airlines||[]).join(' ')||'—')+'  抓到 '+(x.hits||0)+' 次'+(x.fails?'  失敗 '+x.fails:'')+'</small></div>'
-        +(x.manual?'<span class="m">手動</span>':'')
-        +'<button class="btn danger" data-act="srcdel" style="padding:4px 8px;font-size:12px">刪</button></div>';
-    }
-    $('srcList').innerHTML = html || '<p class="note" style="margin:0">還沒有收藏的來源，跑過一次「重新抓取」就會自動累積。</p>';
-  }
-  function loadSources(){ api('/api/sources').then(function(j){ renderSources(j.sources); }).catch(function(e){ toast(e.message); }); }
-  $('srcLoad').addEventListener('click',loadSources);
-  $('srcAdd').addEventListener('click',function(){
-    var url=$('srcUrl').value.trim(); if(!/^https?:\/\//.test(url)){ toast('請貼完整網址'); return; }
-    api('/api/sources',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:url,airlines:$('srcAir').value})})
-      .then(function(j){ renderSources(j.sources); $('srcUrl').value=''; $('srcAir').value=''; toast('已收藏'); }).catch(function(e){ toast(e.message); });
-  });
-  $('srcList').addEventListener('click',function(e){
-    var b=e.target.closest('button[data-act=srcdel]'); if(!b) return;
-    var u=b.closest('.src-item').getAttribute('data-u');
-    api('/api/sources?url='+encodeURIComponent(u),{method:'DELETE'}).then(function(j){ renderSources(j.sources); }).catch(function(e){ toast(e.message); });
   });
 
   // ───── 初始化 ─────
